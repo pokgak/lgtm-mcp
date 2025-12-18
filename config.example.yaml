@@ -1,0 +1,64 @@
+# LGTM MCP Server Configuration
+# Copy this file to ~/.config/lgtm-mcp/config.yaml and customize
+
+version: "1"
+
+# Default instance to use when not specified in tool calls
+default_instance: "local"
+
+instances:
+  # Local development instance (no authentication)
+  local:
+    loki:
+      url: "http://localhost:3100"
+      timeout: 10
+    prometheus:
+      url: "http://localhost:9090"
+      timeout: 10
+    tempo:
+      url: "http://localhost:3200"
+      timeout: 30
+
+  # Grafana Cloud example
+  # grafana-cloud:
+  #   loki:
+  #     url: "https://logs-prod-us-central1.grafana.net"
+  #     token: "${GRAFANA_CLOUD_TOKEN}"
+  #     headers:
+  #       X-Scope-OrgID: "your-org-id"
+  #     timeout: 30
+  #   prometheus:
+  #     url: "https://prometheus-prod-us-central1.grafana.net"
+  #     token: "${GRAFANA_CLOUD_TOKEN}"
+  #     timeout: 30
+  #   tempo:
+  #     url: "https://tempo-prod-us-central1.grafana.net"
+  #     token: "${GRAFANA_CLOUD_TOKEN}"
+  #     timeout: 60
+
+  # Production example with separate tokens
+  # production:
+  #   loki:
+  #     url: "https://loki.prod.example.com"
+  #     token: "${LOKI_PROD_TOKEN}"
+  #     timeout: 30
+  #   prometheus:
+  #     url: "https://prometheus.prod.example.com"
+  #     token: "${PROMETHEUS_PROD_TOKEN}"
+  #     timeout: 30
+  #   tempo:
+  #     url: "https://tempo.prod.example.com"
+  #     token: "${TEMPO_PROD_TOKEN}"
+  #     timeout: 60
+
+# Global settings
+settings:
+  # Maximum results to return (prevents overwhelming the agent)
+  max_log_entries: 1000
+  max_metric_samples: 10000
+  max_traces: 100
+
+  # HTTP connection pool settings
+  max_connections: 100
+  max_keepalive_connections: 20
+  keepalive_expiry: 30
