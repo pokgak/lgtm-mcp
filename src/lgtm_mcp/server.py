@@ -15,6 +15,7 @@ from lgtm_mcp.tools import (
     register_prometheus_tools,
     register_tempo_tools,
 )
+from lgtm_mcp.tracing import init_tracing
 
 mcp = FastMCP(
     "LGTM MCP Server",
@@ -53,6 +54,7 @@ register_syntax_resources(mcp)
 
 def main() -> None:
     """Main entry point for the MCP server."""
+    init_tracing()
     load_config()
     asyncio.run(mcp.run_stdio_async())
 

@@ -9,6 +9,7 @@ MCP server providing read-only access to Loki, Prometheus, and Tempo APIs.
 - **Query tools**: Execute LogQL, PromQL, and TraceQL queries
 - **Metadata discovery**: Expose labels, metrics, and tags as MCP resources
 - **Syntax documentation**: Built-in query language references
+- **OpenTelemetry tracing**: All HTTP client calls are traced and exported via OTLP/gRPC
 
 ## Installation
 
@@ -104,6 +105,18 @@ Resources expose metadata for query generation:
 - `lgtm://syntax/logql` - LogQL syntax reference
 - `lgtm://syntax/promql` - PromQL syntax reference
 - `lgtm://syntax/traceql` - TraceQL syntax reference
+
+## Tracing
+
+The server automatically instruments all HTTP client calls with OpenTelemetry. Traces are exported via OTLP/gRPC.
+
+By default, traces are sent to `http://localhost:4317`. Override with:
+
+```bash
+export OTEL_EXPORTER_OTLP_ENDPOINT="http://your-collector:4317"
+```
+
+Service name: `lgtm-mcp`
 
 ## Development
 
