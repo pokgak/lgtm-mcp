@@ -44,11 +44,15 @@ class BaseClient:
         config: BackendConfig,
         settings: Settings | None = None,
         http_client: httpx.AsyncClient | None = None,
+        instance_name: str = "unknown",
+        backend_type: str = "unknown",
     ):
         self.config = config
         self.settings = settings or Settings()
         self._client = http_client
         self._owns_client = http_client is None
+        self.instance_name = instance_name
+        self.backend_type = backend_type
 
     @property
     def client(self) -> httpx.AsyncClient:

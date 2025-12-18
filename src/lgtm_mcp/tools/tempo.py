@@ -14,7 +14,7 @@ def get_tempo_client(instance: str | None = None) -> TempoClient:
     manager = get_instance_manager(config)
     instance_name = manager.get_instance(instance)
     backend_config = config.get_tempo(instance_name)
-    return TempoClient(backend_config, config.settings)
+    return TempoClient(backend_config, config.settings, instance_name=instance_name)
 
 
 def register_tempo_tools(mcp: FastMCP) -> None:

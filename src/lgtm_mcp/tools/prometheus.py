@@ -14,7 +14,7 @@ def get_prometheus_client(instance: str | None = None) -> PrometheusClient:
     manager = get_instance_manager(config)
     instance_name = manager.get_instance(instance)
     backend_config = config.get_prometheus(instance_name)
-    return PrometheusClient(backend_config, config.settings)
+    return PrometheusClient(backend_config, config.settings, instance_name=instance_name)
 
 
 def register_prometheus_tools(mcp: FastMCP) -> None:

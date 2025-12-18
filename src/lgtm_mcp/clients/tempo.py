@@ -2,17 +2,31 @@
 
 from typing import Any
 
+import httpx
+
 from lgtm_mcp.clients.base import BaseClient
+from lgtm_mcp.models.config import BackendConfig, Settings
 from lgtm_mcp.models.tempo import (
     TempoSearchResponse,
     TempoTagsResponse,
     TempoTagValuesResponse,
 )
+from lgtm_mcp.tracing import traced_operation
 
 
 class TempoClient(BaseClient):
     """Client for Tempo HTTP API."""
 
+    def __init__(
+        self,
+        config: BackendConfig,
+        settings: Settings | None = None,
+        http_client: httpx.AsyncClient | None = None,
+        instance_name: str = "unknown",
+    ):
+        super().__init__(config, settings, http_client, instance_name, "tempo")
+
+    @traced_operation(query_param="trace_id")
     async def get_trace(
         self,
         trace_id: str,
@@ -33,6 +47,7 @@ class TempoClient(BaseClient):
         data = await self._get(f"/api/traces/{trace_id}", params=params)
         return data
 
+    @traced_operation()
     async def search(
         self,
         query: str | None = None,
@@ -74,6 +89,7 @@ class TempoClient(BaseClient):
         data = await self._get("/api/search", params=params)
         return TempoSearchResponse.model_validate(data)
 
+    @traced_operation()
     async def get_tag_names(
         self,
         scope: str | None = None,
@@ -95,6 +111,7 @@ class TempoClient(BaseClient):
         response = TempoTagsResponse.model_validate(data)
         return response.get_all_tags()
 
+    @traced_operation()
     async def get_tag_values(
         self,
         tag: str,
@@ -116,6 +133,7 @@ class TempoClient(BaseClient):
         response = TempoTagValuesResponse.model_validate(data)
         return response.get_values()
 
+    @traced_operation()
     async def get_services(
         self,
         start: str | None = None,

@@ -1,16 +1,30 @@
 """Loki API client."""
 
+import httpx
+
 from lgtm_mcp.clients.base import BaseClient
+from lgtm_mcp.models.config import BackendConfig, Settings
 from lgtm_mcp.models.loki import (
     LokiLabelsResponse,
     LokiQueryResponse,
     LokiSeriesResponse,
 )
+from lgtm_mcp.tracing import traced_operation
 
 
 class LokiClient(BaseClient):
     """Client for Loki HTTP API."""
 
+    def __init__(
+        self,
+        config: BackendConfig,
+        settings: Settings | None = None,
+        http_client: httpx.AsyncClient | None = None,
+        instance_name: str = "unknown",
+    ):
+        super().__init__(config, settings, http_client, instance_name, "loki")
+
+    @traced_operation()
     async def query_range(
         self,
         query: str,
@@ -41,6 +55,7 @@ class LokiClient(BaseClient):
         data = await self._get("/loki/api/v1/query_range", params=params)
         return LokiQueryResponse.model_validate(data)
 
+    @traced_operation()
     async def instant_query(
         self,
         query: str,
@@ -61,6 +76,7 @@ class LokiClient(BaseClient):
         data = await self._get("/loki/api/v1/query", params=params)
         return LokiQueryResponse.model_validate(data)
 
+    @traced_operation()
     async def get_labels(
         self,
         start: str | None = None,
@@ -82,6 +98,7 @@ class LokiClient(BaseClient):
         response = LokiLabelsResponse.model_validate(data)
         return response.data
 
+    @traced_operation()
     async def get_label_values(
         self,
         label: str,
@@ -105,6 +122,7 @@ class LokiClient(BaseClient):
         response = LokiLabelsResponse.model_validate(data)
         return response.data
 
+    @traced_operation()
     async def get_series(
         self,
         match: list[str],

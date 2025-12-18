@@ -14,7 +14,7 @@ def get_loki_client(instance: str | None = None) -> LokiClient:
     manager = get_instance_manager(config)
     instance_name = manager.get_instance(instance)
     backend_config = config.get_loki(instance_name)
-    return LokiClient(backend_config, config.settings)
+    return LokiClient(backend_config, config.settings, instance_name=instance_name)
 
 
 def register_loki_tools(mcp: FastMCP) -> None:

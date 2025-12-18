@@ -1,17 +1,31 @@
 """Prometheus API client."""
 
+import httpx
+
 from lgtm_mcp.clients.base import BaseClient
+from lgtm_mcp.models.config import BackendConfig, Settings
 from lgtm_mcp.models.prometheus import (
     PrometheusLabelsResponse,
     PrometheusMetadataResponse,
     PrometheusQueryResponse,
     PrometheusSeriesResponse,
 )
+from lgtm_mcp.tracing import traced_operation
 
 
 class PrometheusClient(BaseClient):
     """Client for Prometheus HTTP API."""
 
+    def __init__(
+        self,
+        config: BackendConfig,
+        settings: Settings | None = None,
+        http_client: httpx.AsyncClient | None = None,
+        instance_name: str = "unknown",
+    ):
+        super().__init__(config, settings, http_client, instance_name, "prometheus")
+
+    @traced_operation()
     async def instant_query(
         self,
         query: str,
@@ -30,6 +44,7 @@ class PrometheusClient(BaseClient):
         data = await self._get("/api/v1/query", params=params)
         return PrometheusQueryResponse.model_validate(data)
 
+    @traced_operation()
     async def range_query(
         self,
         query: str,
@@ -57,6 +72,7 @@ class PrometheusClient(BaseClient):
         data = await self._get("/api/v1/query_range", params=params)
         return PrometheusQueryResponse.model_validate(data)
 
+    @traced_operation()
     async def get_label_names(
         self,
         match: list[str] | None = None,
@@ -80,6 +96,7 @@ class PrometheusClient(BaseClient):
         response = PrometheusLabelsResponse.model_validate(data)
         return response.data
 
+    @traced_operation()
     async def get_label_values(
         self,
         label: str,
@@ -105,6 +122,7 @@ class PrometheusClient(BaseClient):
         response = PrometheusLabelsResponse.model_validate(data)
         return response.data
 
+    @traced_operation()
     async def get_series(
         self,
         match: list[str],
@@ -126,6 +144,7 @@ class PrometheusClient(BaseClient):
         response = PrometheusSeriesResponse.model_validate(data)
         return response.data
 
+    @traced_operation()
     async def get_metric_names(
         self,
         match: str | None = None,
@@ -145,6 +164,7 @@ class PrometheusClient(BaseClient):
         response = PrometheusLabelsResponse.model_validate(data)
         return response.data
 
+    @traced_operation()
     async def get_metadata(
         self,
         metric: str | None = None,
