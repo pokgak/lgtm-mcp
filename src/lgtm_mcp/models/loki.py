@@ -54,6 +54,10 @@ class LokiQueryResponse(BaseModel):
                     labels = stream.stream
                     for ts, line in stream.values:
                         entries.append({"timestamp": ts, "labels": labels, "line": line})
+                elif isinstance(stream, dict) and "stream" in stream and "values" in stream:
+                    labels = stream["stream"]
+                    for ts, line in stream["values"]:
+                        entries.append({"timestamp": ts, "labels": labels, "line": line})
         return entries
 
 
