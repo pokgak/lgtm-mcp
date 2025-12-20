@@ -6,6 +6,7 @@ from mcp.server.fastmcp import FastMCP
 
 from lgtm_mcp.clients.prometheus import PrometheusClient
 from lgtm_mcp.config import get_instance_manager, load_config
+from lgtm_mcp.utils.charts import plot_time_series
 
 
 def get_prometheus_client(instance: str | None = None) -> PrometheusClient:
@@ -172,3 +173,36 @@ def register_prometheus_tools(mcp: FastMCP) -> None:
         """
         async with get_prometheus_client(instance) as client:
             return await client.get_metadata(metric)
+
+    @mcp.tool()
+    async def prometheus_range_query_chart(
+        query: str,
+        start: str,
+        end: str,
+        step: str = "1m",
+        height: int = 15,
+        max_series: int = 5,
+        instance: str | None = None,
+    ) -> dict[str, Any]:
+        """Execute PromQL range query and return ASCII chart visualization.
+
+        Best for visualizing time-series trends. For raw data, use prometheus_range_query.
+
+        Args:
+            query: PromQL query string (e.g., 'rate(http_requests_total[5m])')
+            start: Start timestamp (Unix epoch or RFC3339)
+            end: End timestamp (Unix epoch or RFC3339)
+            step: Query resolution step (e.g., "15s", "1m", "5m")
+            height: Chart height in lines (default: 15)
+            max_series: Maximum series to plot (default: 5)
+            instance: LGTM instance name
+
+        Returns:
+            Dictionary with ASCII chart, legend, and metadata
+        """
+        async with get_prometheus_client(instance) as client:
+            response = await client.range_query(query, start, end, step)
+            series_data = response.get_range_values()
+            result = plot_time_series(series_data, height=height, max_series=max_series)
+            result["query"] = query
+            return result
