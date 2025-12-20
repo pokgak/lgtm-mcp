@@ -26,25 +26,21 @@ def format_time_label(timestamp: float, duration_seconds: float) -> str:
 
 def add_time_axis(
     chart: str,
-    start_ts: float,
-    end_ts: float,
+    timestamps: list[float],
     num_ticks: int = 10,
-    num_labels: int = 3,
 ) -> str:
     """Add time axis labels below an ASCII chart.
 
     Args:
         chart: The ASCII chart string from asciichartpy
-        start_ts: Start timestamp (Unix epoch)
-        end_ts: End timestamp (Unix epoch)
+        timestamps: List of timestamps corresponding to each data point
         num_ticks: Number of tick marks on the axis
-        num_labels: Number of time labels to display (start, middle, end)
 
     Returns:
         Chart with time axis appended
     """
     lines = chart.split("\n")
-    if not lines:
+    if not lines or not timestamps:
         return chart
 
     max_line_len = max(len(line) for line in lines)
@@ -65,7 +61,8 @@ def add_time_axis(
     if chart_width <= 0:
         return chart
 
-    duration = end_ts - start_ts
+    num_data_points = len(timestamps)
+    duration = timestamps[-1] - timestamps[0] if len(timestamps) > 1 else 0
 
     axis_line = " " * y_axis_width
     tick_positions = [int(chart_width * i / (num_ticks - 1)) for i in range(num_ticks)]
@@ -84,7 +81,9 @@ def add_time_axis(
 
     label_tick_indices = [1, (num_ticks - 1) // 2, num_ticks - 2]
     label_positions = [tick_positions[i] for i in label_tick_indices]
-    label_timestamps = [start_ts + (duration * i / (num_ticks - 1)) for i in label_tick_indices]
+
+    data_indices = [int((num_data_points - 1) * i / (num_ticks - 1)) for i in label_tick_indices]
+    label_timestamps = [timestamps[i] for i in data_indices]
     labels = [format_time_label(ts, duration) for ts in label_timestamps]
 
     label_line = " " * y_axis_width
@@ -227,8 +226,8 @@ def plot_time_series(
             "truncated": truncated,
         }
 
-    if start_ts and end_ts:
-        chart = add_time_axis(chart, start_ts, end_ts)
+    if all_timestamps:
+        chart = add_time_axis(chart, all_timestamps)
 
     return {
         "chart": chart,
