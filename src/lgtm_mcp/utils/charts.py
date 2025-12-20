@@ -1,8 +1,17 @@
 """ASCII chart utilities for metrics visualization."""
 
+import re
 from datetime import datetime
 
 import asciichartpy
+
+
+ANSI_ESCAPE_PATTERN = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def strip_ansi(text: str) -> str:
+    """Remove ANSI escape codes from text."""
+    return ANSI_ESCAPE_PATTERN.sub("", text)
 
 
 def format_time_label(timestamp: float, duration_seconds: float) -> str:
@@ -43,11 +52,12 @@ def add_time_axis(
     if not lines or not timestamps:
         return chart
 
-    max_line_len = max(len(line) for line in lines)
+    max_line_len = max(len(strip_ansi(line)) for line in lines)
 
     y_axis_width = 0
     for line in lines:
-        for i, char in enumerate(line):
+        stripped = strip_ansi(line)
+        for i, char in enumerate(stripped):
             if char in "┼┤":
                 y_axis_width = i + 1
                 break
@@ -99,6 +109,48 @@ def add_time_axis(
     label_line += "".join(label_chars)
 
     return chart + "\n" + axis_line + "\n" + label_line
+
+
+SERIES_COLORS = [
+    (asciichartpy.lightblue, "lightblue"),
+    (asciichartpy.lightgreen, "lightgreen"),
+    (asciichartpy.lightyellow, "lightyellow"),
+    (asciichartpy.lightmagenta, "lightmagenta"),
+    (asciichartpy.lightcyan, "lightcyan"),
+]
+
+
+def get_series_colors(count: int) -> list:
+    """Get color codes for the specified number of series."""
+    return [SERIES_COLORS[i % len(SERIES_COLORS)][0] for i in range(count)]
+
+
+def format_legend(legend_items: list[dict], max_label_length: int = 50) -> str:
+    """Format legend items for display below the chart.
+
+    Args:
+        legend_items: List of legend items with series, metric, and label
+        max_label_length: Maximum length for each label
+
+    Returns:
+        Formatted legend string
+    """
+    if not legend_items:
+        return ""
+
+    lines = ["", "Legend:"]
+    for item in legend_items:
+        idx = item["series"] - 1
+        color_code, color_name = SERIES_COLORS[idx % len(SERIES_COLORS)]
+        label = item.get("label", "")
+
+        if len(label) > max_label_length:
+            label = label[: max_label_length - 3] + "..."
+
+        colored_marker = f"{color_code}━━{asciichartpy.reset}"
+        lines.append(f"  [{colored_marker}] ({color_name}) {label}")
+
+    return "\n".join(lines)
 
 
 def format_metric_label(metric: dict[str, str], max_length: int = 60) -> str:
@@ -212,7 +264,10 @@ def plot_time_series(
         chart_data = all_values
 
     try:
-        chart = asciichartpy.plot(chart_data, {"height": height})
+        config = {"height": height}
+        if len(all_values) > 1:
+            config["colors"] = get_series_colors(len(all_values))
+        chart = asciichartpy.plot(chart_data, config)
     except Exception as e:
         return {
             "chart": f"(chart error: {e})",
@@ -228,6 +283,9 @@ def plot_time_series(
 
     if all_timestamps:
         chart = add_time_axis(chart, all_timestamps)
+
+    if len(all_values) > 1:
+        chart += format_legend(legend)
 
     return {
         "chart": chart,
