@@ -87,17 +87,19 @@ def add_time_axis(
     label_timestamps = [start_ts + (duration * i / (num_ticks - 1)) for i in label_tick_indices]
     labels = [format_time_label(ts, duration) for ts in label_timestamps]
 
+    last_label = labels[-1]
+    last_pos = label_positions[-1]
+    last_label_end = last_pos - len(last_label) // 2 + len(last_label)
+    extended_width = max(chart_width, last_label_end)
+
     label_line = " " * y_axis_width
-    label_chars = [" "] * chart_width
+    label_chars = [" "] * extended_width
 
     for i, (pos, label) in enumerate(zip(label_positions, labels)):
         if i == 0:
             continue
 
         start_pos = pos - len(label) // 2
-
-        if i == len(labels) - 1:
-            start_pos = min(start_pos, chart_width - len(label))
 
         for j, char in enumerate(label):
             if 0 <= start_pos + j < len(label_chars):
