@@ -72,15 +72,14 @@ def add_time_axis(
     label_positions = [int(chart_width * i / (num_labels - 1)) for i in range(num_labels)]
 
     axis_line = " " * y_axis_width
-    tick_positions = set(int(chart_width * i / (num_ticks - 1)) for i in range(num_ticks))
-    tick_positions.update(label_positions)
+    tick_positions = [int(chart_width * i / (num_ticks - 1)) for i in range(num_ticks)]
 
     axis_chars = list("─" * chart_width)
-    for pos in sorted(tick_positions):
+    for i, pos in enumerate(tick_positions):
         if pos < len(axis_chars):
-            if pos == 0:
+            if i == 0:
                 axis_chars[pos] = "├"
-            elif pos >= chart_width - 1:
+            elif i == num_ticks - 1:
                 axis_chars[min(pos, len(axis_chars) - 1)] = "┤"
             else:
                 axis_chars[pos] = "┼"
