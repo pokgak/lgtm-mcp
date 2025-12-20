@@ -19,28 +19,31 @@ instances:
       url: "http://localhost:3200"
       timeout: 30
 
-  # Grafana Cloud example
+  # Grafana Cloud example (Basic Auth with username + token)
   # grafana-cloud:
   #   loki:
   #     url: "https://logs-prod-us-central1.grafana.net"
+  #     username: "${GRAFANA_USER}"
   #     token: "${GRAFANA_CLOUD_TOKEN}"
   #     headers:
   #       X-Scope-OrgID: "your-org-id"
   #     timeout: 30
   #   prometheus:
   #     url: "https://prometheus-prod-us-central1.grafana.net"
+  #     username: "${GRAFANA_USER}"
   #     token: "${GRAFANA_CLOUD_TOKEN}"
   #     timeout: 30
   #   tempo:
   #     url: "https://tempo-prod-us-central1.grafana.net"
+  #     username: "${GRAFANA_USER}"
   #     token: "${GRAFANA_CLOUD_TOKEN}"
   #     timeout: 60
 
-  # Production example with separate tokens
+  # Production example with Bearer token auth
   # production:
   #   loki:
   #     url: "https://loki.prod.example.com"
-  #     token: "${LOKI_PROD_TOKEN}"
+  #     token: "${LOKI_PROD_TOKEN}"  # token only = Bearer auth
   #     timeout: 30
   #   prometheus:
   #     url: "https://prometheus.prod.example.com"

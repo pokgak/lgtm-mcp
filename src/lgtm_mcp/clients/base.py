@@ -64,12 +64,18 @@ class BaseClient:
     def _create_client(self) -> httpx.AsyncClient:
         """Create a new HTTP client with configured settings."""
         headers = dict(self.config.headers)
-        if self.config.token:
-            headers["Authorization"] = f"Bearer {self.config.token}"
+
+        if self.config.username and self.config.token:
+            auth = httpx.BasicAuth(self.config.username, self.config.token)
+        else:
+            auth = None
+            if self.config.token:
+                headers["Authorization"] = f"Bearer {self.config.token}"
 
         return httpx.AsyncClient(
             base_url=self.config.url,
             headers=headers,
+            auth=auth,
             timeout=httpx.Timeout(self.config.timeout),
             limits=httpx.Limits(
                 max_connections=self.settings.max_connections,

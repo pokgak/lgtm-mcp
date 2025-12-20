@@ -7,7 +7,8 @@ class BackendConfig(BaseModel):
     """Configuration for a single backend (Loki, Prometheus, or Tempo)."""
 
     url: str = Field(..., description="Base URL for the backend API")
-    token: str | None = Field(None, description="Bearer token for authentication")
+    username: str | None = Field(None, description="Username for Basic Auth")
+    token: str | None = Field(None, description="Bearer token or password for Basic Auth")
     headers: dict[str, str] = Field(default_factory=dict, description="Additional headers")
     timeout: int = Field(30, description="Request timeout in seconds")
 
