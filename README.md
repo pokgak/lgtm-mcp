@@ -30,13 +30,16 @@ instances:
 
   grafana-cloud:
     loki:
-      url: "https://logs-prod.grafana.net"
+      url: "https://logs-prod-us-west-0.grafana.net"
+      username: "${GRAFANA_CLOUD_LOKI_USERNAME}"
       token: "${GRAFANA_CLOUD_TOKEN}"
     prometheus:
-      url: "https://prometheus-prod.grafana.net"
+      url: "https://prometheus-prod-01-us-west-0.grafana.net/api/prom"
+      username: "${GRAFANA_CLOUD_PROMETHEUS_USERNAME}"
       token: "${GRAFANA_CLOUD_TOKEN}"
     tempo:
-      url: "https://tempo-prod.grafana.net"
+      url: "https://tempo-prod-us-west-0.grafana.net"
+      username: "${GRAFANA_CLOUD_TEMPO_USERNAME}"
       token: "${GRAFANA_CLOUD_TOKEN}"
 ```
 
