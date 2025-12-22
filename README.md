@@ -11,12 +11,6 @@ MCP server providing read-only access to Loki, Prometheus, and Tempo APIs.
 - **Syntax documentation**: Built-in query language references
 - **OpenTelemetry tracing**: All HTTP client calls are traced and exported via OTLP/gRPC
 
-## Installation
-
-```bash
-uv pip install -e .
-```
-
 ## Configuration
 
 Create a config file at `~/.config/lgtm-mcp/config.yaml`:
