@@ -1,0 +1,10 @@
+instances:
+  local:
+    loki:
+      url: http://localhost:3100
+    prometheus:
+      url: http://localhost:9090
+    tempo:
+      url: http://localhost:3200
+
+default_instance: local

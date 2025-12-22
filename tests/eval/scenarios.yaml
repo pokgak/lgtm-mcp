@@ -1,0 +1,91 @@
+scenarios:
+  # Tempo tools
+  - name: tempo_search_default
+    tool: tempo_search
+    description: "Search traces (summary mode)"
+    params:
+      query: '{resource.service.name=~".+"}'
+      limit: 20
+    max_tokens: 1500
+
+  - name: tempo_search_with_spans
+    tool: tempo_search
+    description: "Search traces with full span data"
+    params:
+      query: '{resource.service.name=~".+"}'
+      limit: 20
+      include_spans: true
+    max_tokens: 8000
+
+  - name: tempo_metadata_tags
+    tool: tempo_metadata
+    description: "Get available trace tags"
+    params:
+      info: tags
+    max_tokens: 1500
+
+  - name: tempo_metadata_services
+    tool: tempo_metadata
+    description: "Get service names"
+    params:
+      info: services
+    max_tokens: 500
+
+  # Loki tools
+  - name: loki_query_logs
+    tool: loki_query
+    description: "Query recent logs"
+    params:
+      query: '{service_name=~".+"}'
+      limit: 20
+    max_tokens: 5000
+
+  - name: loki_patterns
+    tool: loki_patterns
+    description: "Detect log patterns"
+    params:
+      query: '{service_name=~".+"}'
+    max_tokens: 2000
+
+  - name: loki_stats
+    tool: loki_stats
+    description: "Get log statistics"
+    params:
+      query: '{service_name=~".+"}'
+    max_tokens: 500
+
+  - name: loki_metadata_labels
+    tool: loki_metadata
+    description: "Get available labels"
+    params:
+      info: labels
+    max_tokens: 500
+
+  # Prometheus tools
+  - name: prometheus_query_instant
+    tool: prometheus_query
+    description: "Instant query for up metric"
+    params:
+      query: "up"
+    max_tokens: 1000
+
+  - name: prometheus_query_rate
+    tool: prometheus_query
+    description: "Rate query for HTTP requests"
+    params:
+      query: 'sum(rate(http_server_request_duration_seconds_count[5m])) by (service_name)'
+    max_tokens: 1000
+
+  - name: prometheus_metadata_metrics
+    tool: prometheus_metadata
+    description: "List all metrics"
+    params:
+      info: metrics
+    max_tokens: 5000
+
+  - name: prometheus_metadata_labels
+    tool: prometheus_metadata
+    description: "List all labels"
+    params:
+      info: labels
+    max_tokens: 500
