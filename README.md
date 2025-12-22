@@ -45,6 +45,8 @@ instances:
 
 Environment variables are expanded using `${VAR}` syntax.
 
+For Grafana Cloud, a token with read-only permissions is sufficient. See [Creating access policies](https://grafana.com/docs/grafana-cloud/security-and-account-management/authentication-and-permissions/access-policies/create-access-policies/) for details.
+
 ## Usage
 
 ### Claude Code
