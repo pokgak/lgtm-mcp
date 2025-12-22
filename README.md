@@ -50,16 +50,56 @@ Environment variables are expanded using `${VAR}` syntax.
 
 ## Usage
 
-### With Claude Code
+### Claude Code
 
-Add to your Claude Code MCP config:
+Add the MCP server using the Claude Code CLI:
+
+```bash
+claude mcp add lgtm -- uvx --from git+https://github.com/pokgak/lgtm-mcp lgtm-mcp
+```
+
+Or manually add to your Claude Code MCP settings (`~/.claude/settings.json`):
+
+```json
+{
+  "mcpServers": {
+    "lgtm": {
+      "command": "uvx",
+      "args": ["--from", "git+https://github.com/pokgak/lgtm-mcp", "lgtm-mcp"]
+    }
+  }
+}
+```
+
+### Claude Desktop
+
+Add to your Claude Desktop config file:
+
+- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+
+```json
+{
+  "mcpServers": {
+    "lgtm": {
+      "command": "uvx",
+      "args": ["--from", "git+https://github.com/pokgak/lgtm-mcp", "lgtm-mcp"]
+    }
+  }
+}
+```
+
+### Local Development
+
+If you've cloned the repository locally:
 
 ```json
 {
   "mcpServers": {
     "lgtm": {
       "command": "uv",
-      "args": ["run", "lgtm-mcp"]
+      "args": ["run", "lgtm-mcp"],
+      "cwd": "/path/to/lgtm-mcp"
     }
   }
 }
