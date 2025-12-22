@@ -1,10 +1,11 @@
 """Tempo MCP tools for trace querying."""
 
 import statistics
-from typing import Any
+from typing import Any, Literal
 
 from mcp.server.fastmcp import FastMCP
 
+from lgtm_mcp.clients.base import APIError
 from lgtm_mcp.clients.tempo import TempoClient
 from lgtm_mcp.config import get_instance_manager, load_config
 
@@ -188,65 +189,51 @@ def register_tempo_tools(mcp: FastMCP) -> None:
     """Register all Tempo tools with the MCP server."""
 
     @mcp.tool()
-    async def tempo_trace_summary(
-        trace_id: str,
-        start: str | None = None,
-        end: str | None = None,
-        max_tree_depth: int = 3,
-        max_tree_spans: int = 20,
-        instance: str | None = None,
-    ) -> dict[str, Any]:
-        """Get a summary of a trace with statistics. Use this FIRST before fetching full trace data.
-
-        Returns high-level stats including span count, duration percentiles (p50/p95/p99),
-        error count, services involved, and a visual span tree. Much more compact than
-        full trace data.
-
-        Args:
-            trace_id: The trace ID to summarize (hex string)
-            start: Start timestamp to narrow search window
-            end: End timestamp to narrow search window
-            max_tree_depth: Maximum depth for span tree visualization (default: 3)
-            max_tree_spans: Maximum spans to show in tree (default: 20)
-            instance: LGTM instance name
-
-        Returns:
-            Summary with total_spans, duration_stats (p50/p95/p99), error_count,
-            services, span_counts_by_service, and span_tree visualization
-        """
-        async with get_tempo_client(instance) as client:
-            trace_data = await client.get_trace(trace_id, start, end)
-            spans = _extract_spans_from_otlp(trace_data)
-            return _compute_trace_summary(trace_id, spans, max_tree_depth, max_tree_spans)
-
-    @mcp.tool()
     async def tempo_get_trace(
         trace_id: str,
         start: str | None = None,
         end: str | None = None,
+        summary: bool = True,
         instance: str | None = None,
     ) -> dict[str, Any]:
-        """Retrieve full trace data in OTLP JSON format. Can be very large for complex traces.
-
-        Use tempo_trace_summary first to get an overview, then use this only if you need
-        the complete span details including all attributes and events.
+        """Get trace by ID. Returns summary by default, full OTLP data if summary=False.
 
         Args:
-            trace_id: The trace ID to retrieve (hex string)
-            start: Start timestamp to narrow search window
-            end: End timestamp to narrow search window
+            trace_id: Trace ID (hex string)
+            start: Start time to narrow search
+            end: End time to narrow search
+            summary: Return summary with stats and span tree (default: True)
             instance: LGTM instance name
-
-        Returns:
-            Trace data in OTLP JSON format
         """
         async with get_tempo_client(instance) as client:
-            return await client.get_trace(trace_id, start, end)
+            try:
+                trace_data = await client.get_trace(trace_id, start, end)
+            except APIError as e:
+                if e.status_code == 404:
+                    return {
+                        "status": "error",
+                        "error": "trace_not_found",
+                        "trace_id": trace_id,
+                        "message": "Trace not found. May have expired or ID incorrect.",
+                    }
+                raise
+
+            if not summary:
+                return trace_data
+
+            spans = _extract_spans_from_otlp(trace_data)
+            if not spans:
+                return {
+                    "status": "success",
+                    "trace_id": trace_id,
+                    "total_spans": 0,
+                    "message": "Trace found but contains no spans.",
+                }
+            return _compute_trace_summary(trace_id, spans, max_tree_depth=3, max_tree_spans=20)
 
     @mcp.tool()
-    async def tempo_search_traces(
+    async def tempo_search(
         query: str | None = None,
-        tags: dict[str, str] | None = None,
         min_duration: str | None = None,
         max_duration: str | None = None,
         limit: int = 20,
@@ -254,88 +241,102 @@ def register_tempo_tools(mcp: FastMCP) -> None:
         end: str | None = None,
         instance: str | None = None,
     ) -> dict[str, Any]:
-        """Search traces with TraceQL or tag filters.
+        """Search traces with TraceQL.
 
         Args:
-            query: TraceQL query string (e.g., '{resource.service.name="myapp"}')
-            tags: Tag key-value pairs for filtering (legacy API)
-            min_duration: Minimum trace duration (e.g., "100ms", "1s")
-            max_duration: Maximum trace duration
-            limit: Maximum traces to return (default: 20)
-            start: Start timestamp
-            end: End timestamp
+            query: TraceQL query (e.g., '{resource.service.name="myapp"}')
+            min_duration: Min duration (e.g., "100ms", "1s")
+            max_duration: Max duration
+            limit: Max traces to return (default: 20)
+            start: Start time
+            end: End time
             instance: LGTM instance name
-
-        Returns:
-            Dictionary with matching traces
         """
         async with get_tempo_client(instance) as client:
-            response = await client.search(
-                query, tags, min_duration, max_duration, limit, start, end
-            )
+            try:
+                response = await client.search(
+                    query, None, min_duration, max_duration, limit, start, end
+                )
+            except APIError as e:
+                if e.status_code == 404:
+                    return {
+                        "status": "error",
+                        "error": "search_not_available",
+                        "message": "Search endpoint not available on this Tempo instance.",
+                    }
+                raise
+            if not response.traces:
+                return {
+                    "status": "success",
+                    "traces": [],
+                    "count": 0,
+                    "message": "No traces found. Try expanding time range or relaxing filters.",
+                }
             return {
+                "status": "success",
                 "traces": [t.model_dump() for t in response.traces],
                 "count": len(response.traces),
-                "metrics": response.metrics,
             }
 
     @mcp.tool()
-    async def tempo_get_tag_names(
-        scope: str | None = None,
+    async def tempo_metadata(
+        info: Literal["services", "tags", "tag_values"],
+        tag: str | None = None,
         start: str | None = None,
         end: str | None = None,
         instance: str | None = None,
-    ) -> list[str]:
-        """List available tag names in Tempo.
+    ) -> dict[str, Any]:
+        """Get Tempo metadata: services, tags, or tag values.
 
         Args:
-            scope: Scope to filter tags (span, resource, intrinsic)
-            start: Start timestamp
-            end: End timestamp
+            info: What to get - "services", "tags", or "tag_values"
+            tag: Tag name (required for tag_values)
+            start: Start time filter
+            end: End time filter
             instance: LGTM instance name
-
-        Returns:
-            List of tag names
         """
         async with get_tempo_client(instance) as client:
-            return await client.get_tag_names(scope, start, end)
+            try:
+                if info == "services":
+                    services = await client.get_services(start, end)
+                    if not services:
+                        return {
+                            "status": "success",
+                            "services": [],
+                            "message": "No services found.",
+                        }
+                    return {"status": "success", "services": services, "count": len(services)}
 
-    @mcp.tool()
-    async def tempo_get_tag_values(
-        tag: str,
-        start: str | None = None,
-        end: str | None = None,
-        instance: str | None = None,
-    ) -> list[str]:
-        """Get values for a specific tag in Tempo.
+                elif info == "tags":
+                    tags = await client.get_tag_names(None, start, end)
+                    if not tags:
+                        return {"status": "success", "tags": [], "message": "No tags found."}
+                    return {"status": "success", "tags": tags, "count": len(tags)}
 
-        Args:
-            tag: Tag name (e.g., "service.name", "http.status_code")
-            start: Start timestamp
-            end: End timestamp
-            instance: LGTM instance name
+                elif info == "tag_values":
+                    if not tag:
+                        return {
+                            "status": "error",
+                            "message": "tag parameter required for tag_values",
+                        }
+                    values = await client.get_tag_values(tag, start, end)
+                    if not values:
+                        return {
+                            "status": "success",
+                            "tag": tag,
+                            "values": [],
+                            "message": f"No values for tag '{tag}'.",
+                        }
+                    return {"status": "success", "tag": tag, "values": values, "count": len(values)}
 
-        Returns:
-            List of tag values
-        """
-        async with get_tempo_client(instance) as client:
-            return await client.get_tag_values(tag, start, end)
+                else:
+                    return {"status": "error", "message": f"Unknown info type: {info}"}
 
-    @mcp.tool()
-    async def tempo_get_services(
-        start: str | None = None,
-        end: str | None = None,
-        instance: str | None = None,
-    ) -> list[str]:
-        """List service names from traces.
-
-        Args:
-            start: Start timestamp
-            end: End timestamp
-            instance: LGTM instance name
-
-        Returns:
-            List of service names
-        """
-        async with get_tempo_client(instance) as client:
-            return await client.get_services(start, end)
+            except APIError as e:
+                if e.status_code == 404:
+                    return {
+                        "status": "error",
+                        "error": f"{info}_not_available",
+                        "message": f"The {info} endpoint is not available on this Tempo instance.",
+                    }
+                raise
