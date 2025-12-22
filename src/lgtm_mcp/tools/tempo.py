@@ -239,6 +239,7 @@ def register_tempo_tools(mcp: FastMCP) -> None:
         limit: int = 20,
         start: str | None = None,
         end: str | None = None,
+        include_spans: bool = False,
         instance: str | None = None,
     ) -> dict[str, Any]:
         """Search traces with TraceQL.
@@ -250,6 +251,7 @@ def register_tempo_tools(mcp: FastMCP) -> None:
             limit: Max traces to return (default: 20)
             start: Start time
             end: End time
+            include_spans: Include matched spans detail (default: False, saves tokens)
             instance: LGTM instance name
         """
         async with get_tempo_client(instance) as client:
@@ -272,9 +274,25 @@ def register_tempo_tools(mcp: FastMCP) -> None:
                     "count": 0,
                     "message": "No traces found. Try expanding time range or relaxing filters.",
                 }
+
+            if include_spans:
+                traces = [t.model_dump() for t in response.traces]
+            else:
+                traces = [
+                    {
+                        "traceID": t.traceID,
+                        "rootServiceName": t.rootServiceName,
+                        "rootTraceName": t.rootTraceName,
+                        "startTimeUnixNano": t.startTimeUnixNano,
+                        "durationMs": t.durationMs,
+                        "spanCount": t.spanSet.get("matched", 0) if t.spanSet else t.spanCount,
+                    }
+                    for t in response.traces
+                ]
+
             return {
                 "status": "success",
-                "traces": [t.model_dump() for t in response.traces],
+                "traces": traces,
                 "count": len(response.traces),
             }
 
