@@ -1,29 +1,12 @@
 """ASCII chart utilities for metrics visualization."""
 
-import re
 from datetime import datetime
 
 import asciichartpy
 
 
-ANSI_ESCAPE_PATTERN = re.compile(r"\x1b\[[0-9;]*m")
-
-
-def strip_ansi(text: str) -> str:
-    """Remove ANSI escape codes from text."""
-    return ANSI_ESCAPE_PATTERN.sub("", text)
-
-
 def format_time_label(timestamp: float, duration_seconds: float) -> str:
-    """Format timestamp based on time range duration.
-
-    Args:
-        timestamp: Unix timestamp
-        duration_seconds: Total duration of the time range
-
-    Returns:
-        Formatted time string
-    """
+    """Format timestamp based on time range duration."""
     dt = datetime.fromtimestamp(timestamp)
     if duration_seconds <= 3600:  # <= 1 hour
         return dt.strftime("%H:%M:%S")
@@ -36,37 +19,15 @@ def format_time_label(timestamp: float, duration_seconds: float) -> str:
 def add_time_axis(
     chart: str,
     timestamps: list[float],
+    y_axis_width: int,
     num_ticks: int = 10,
 ) -> str:
-    """Add time axis labels below an ASCII chart.
-
-    Args:
-        chart: The ASCII chart string from asciichartpy
-        timestamps: List of timestamps corresponding to each data point
-        num_ticks: Number of tick marks on the axis
-
-    Returns:
-        Chart with time axis appended
-    """
+    """Add time axis labels below an ASCII chart."""
     lines = chart.split("\n")
     if not lines or not timestamps:
         return chart
 
-    max_line_len = max(len(strip_ansi(line)) for line in lines)
-
-    y_axis_width = 0
-    for line in lines:
-        stripped = strip_ansi(line)
-        for i, char in enumerate(stripped):
-            if char in "┼┤":
-                y_axis_width = i + 1
-                break
-        if y_axis_width > 0:
-            break
-
-    if y_axis_width == 0:
-        y_axis_width = 10
-
+    max_line_len = max(len(line) for line in lines)
     chart_width = max_line_len - y_axis_width
     if chart_width <= 0:
         return chart
@@ -89,18 +50,22 @@ def add_time_axis(
 
     axis_line += "".join(axis_chars)
 
-    label_tick_indices = [1, (num_ticks - 1) // 2, num_ticks - 2]
-    label_positions = [tick_positions[i] for i in label_tick_indices]
-
-    data_indices = [int((num_data_points - 1) * i / (num_ticks - 1)) for i in label_tick_indices]
-    label_timestamps = [timestamps[i] for i in data_indices]
+    # Show labels at start, middle, and end positions
+    label_data_indices = [0, num_data_points // 2, num_data_points - 1]
+    label_positions = [0, chart_width // 2, chart_width - 1]
+    label_timestamps = [timestamps[i] for i in label_data_indices]
     labels = [format_time_label(ts, duration) for ts in label_timestamps]
 
     label_line = " " * y_axis_width
     label_chars = [" "] * chart_width
 
-    for i, (pos, label) in enumerate(zip(label_positions, labels)):
-        start_pos = pos - len(label) // 2
+    for idx, (pos, label) in enumerate(zip(label_positions, labels)):
+        if idx == 0:  # Left-align first label
+            start_pos = pos
+        elif idx == len(labels) - 1:  # Right-align last label
+            start_pos = pos - len(label) + 1
+        else:  # Center middle label
+            start_pos = pos - len(label) // 2
 
         for j, char in enumerate(label):
             if 0 <= start_pos + j < len(label_chars):
@@ -111,58 +76,8 @@ def add_time_axis(
     return chart + "\n" + axis_line + "\n" + label_line
 
 
-SERIES_COLORS = [
-    (asciichartpy.lightblue, "lightblue"),
-    (asciichartpy.lightgreen, "lightgreen"),
-    (asciichartpy.lightyellow, "lightyellow"),
-    (asciichartpy.lightmagenta, "lightmagenta"),
-    (asciichartpy.lightcyan, "lightcyan"),
-]
-
-
-def get_series_colors(count: int) -> list:
-    """Get color codes for the specified number of series."""
-    return [SERIES_COLORS[i % len(SERIES_COLORS)][0] for i in range(count)]
-
-
-def format_legend(legend_items: list[dict], max_label_length: int = 50) -> str:
-    """Format legend items for display below the chart.
-
-    Args:
-        legend_items: List of legend items with series, metric, and label
-        max_label_length: Maximum length for each label
-
-    Returns:
-        Formatted legend string
-    """
-    if not legend_items:
-        return ""
-
-    lines = ["", "Legend:"]
-    for item in legend_items:
-        idx = item["series"] - 1
-        color_code, color_name = SERIES_COLORS[idx % len(SERIES_COLORS)]
-        label = item.get("label", "")
-
-        if len(label) > max_label_length:
-            label = label[: max_label_length - 3] + "..."
-
-        colored_marker = f"{color_code}━━{asciichartpy.reset}"
-        lines.append(f"  [{colored_marker}] ({color_name}) {label}")
-
-    return "\n".join(lines)
-
-
-def format_metric_label(metric: dict[str, str], max_length: int = 60) -> str:
-    """Format metric labels for display in legend.
-
-    Args:
-        metric: Dictionary of metric labels
-        max_length: Maximum length of the formatted string
-
-    Returns:
-        Formatted label string
-    """
+def format_metric_label(metric: dict[str, str], max_length: int = 80) -> str:
+    """Format metric labels for display as chart title."""
     parts = []
     for key, value in metric.items():
         if key != "__name__":
@@ -174,27 +89,62 @@ def format_metric_label(metric: dict[str, str], max_length: int = 60) -> str:
     return result
 
 
+def calculate_y_axis_width(min_val: float, max_val: float) -> int:
+    """Calculate the width needed for Y-axis labels."""
+    test_values = [min_val, max_val, (min_val + max_val) / 2]
+    max_width = 0
+    for val in test_values:
+        if abs(val) >= 1000000:
+            formatted = f"{val:.2e}"
+        elif abs(val) >= 1:
+            formatted = f"{val:.2f}"
+        else:
+            formatted = f"{val:.4f}"
+        max_width = max(max_width, len(formatted))
+    return max_width + 3  # +3 for padding and axis char
+
+
+def plot_single_series(
+    values: list[float],
+    timestamps: list[float],
+    height: int,
+    min_val: float,
+    max_val: float,
+    y_axis_width: int,
+) -> str:
+    """Plot a single series with fixed axis dimensions."""
+    format_str = "{:" + str(y_axis_width - 1) + ".2f} "
+    config = {
+        "height": height,
+        "min": min_val,
+        "max": max_val,
+        "format": format_str,
+    }
+    chart = asciichartpy.plot(values, config)
+    chart = add_time_axis(chart, timestamps, y_axis_width)
+    return chart
+
+
 def plot_time_series(
     series_data: list[dict],
-    height: int = 15,
+    height: int = 12,
     max_series: int = 5,
 ) -> dict:
-    """Plot time series data as ASCII chart.
+    """Plot time series data as separate ASCII charts with shared axis dimensions.
 
     Args:
         series_data: List of series, each with:
             - metric: dict of labels
             - values: list of {"timestamp": float, "value": str} dicts
-        height: Chart height in lines
-        max_series: Maximum number of series to plot
+        height: Chart height in lines for each chart
+        max_series: Maximum number of series to plot (default: 5)
 
     Returns:
-        Dictionary with chart, legend, and metadata
+        Dictionary with charts list and metadata
     """
     if not series_data:
         return {
-            "chart": "(no data)",
-            "legend": [],
+            "charts": [],
             "metadata": {
                 "series_count": 0,
                 "data_points": 0,
@@ -207,11 +157,11 @@ def plot_time_series(
     truncated = len(series_data) > max_series
     series_to_plot = series_data[:max_series]
 
-    all_values: list[list[float]] = []
+    all_series_values: list[list[float]] = []
+    all_series_metrics: list[dict] = []
     all_timestamps: list[float] = []
-    legend = []
 
-    for idx, series in enumerate(series_to_plot):
+    for series in series_to_plot:
         metric = series.get("metric", {})
         values_list = series.get("values", [])
 
@@ -225,23 +175,15 @@ def plot_time_series(
             except (ValueError, TypeError):
                 float_values.append(float("nan"))
 
-        all_values.append(float_values)
+        all_series_values.append(float_values)
+        all_series_metrics.append(metric)
 
         if not all_timestamps:
             all_timestamps = [float(v["timestamp"]) for v in values_list]
 
-        legend.append(
-            {
-                "series": idx + 1,
-                "metric": metric,
-                "label": format_metric_label(metric),
-            }
-        )
-
-    if not all_values:
+    if not all_series_values:
         return {
-            "chart": "(no numeric data)",
-            "legend": [],
+            "charts": [],
             "metadata": {
                 "series_count": len(series_data),
                 "data_points": 0,
@@ -251,53 +193,57 @@ def plot_time_series(
             "truncated": truncated,
         }
 
-    flat_values = [v for series in all_values for v in series if not (v != v)]  # filter NaN
-    min_val = min(flat_values) if flat_values else 0
-    max_val = max(flat_values) if flat_values else 0
+    # Calculate global min/max across all series for consistent Y-axis
+    flat_values = [v for series in all_series_values for v in series if not (v != v)]
+    global_min = min(flat_values) if flat_values else 0
+    global_max = max(flat_values) if flat_values else 0
+
+    # Add small padding to min/max
+    value_range = global_max - global_min
+    if value_range > 0:
+        padding = value_range * 0.05
+        global_min -= padding
+        global_max += padding
+
+    y_axis_width = calculate_y_axis_width(global_min, global_max)
 
     start_ts = min(all_timestamps) if all_timestamps else 0
     end_ts = max(all_timestamps) if all_timestamps else 0
 
-    if len(all_values) == 1:
-        chart_data = all_values[0]
-    else:
-        chart_data = all_values
-
-    try:
-        config = {"height": height}
-        if len(all_values) > 1:
-            config["colors"] = get_series_colors(len(all_values))
-        chart = asciichartpy.plot(chart_data, config)
-    except Exception as e:
-        return {
-            "chart": f"(chart error: {e})",
-            "legend": legend,
-            "metadata": {
-                "series_count": len(series_data),
-                "data_points": len(all_timestamps),
-                "time_range": {"start": start_ts, "end": end_ts},
-                "value_range": {"min": min_val, "max": max_val},
-            },
-            "truncated": truncated,
-        }
-
-    if all_timestamps:
-        chart = add_time_axis(chart, all_timestamps)
-
-    if len(all_values) > 1:
-        chart += format_legend(legend)
+    charts = []
+    for idx, (values, metric) in enumerate(zip(all_series_values, all_series_metrics)):
+        label = format_metric_label(metric)
+        try:
+            chart = plot_single_series(
+                values, all_timestamps, height, global_min, global_max, y_axis_width
+            )
+            charts.append(
+                {
+                    "series": idx + 1,
+                    "label": label,
+                    "chart": f"[{idx + 1}/{len(all_series_values)}] {label}\n{chart}",
+                }
+            )
+        except Exception as e:
+            charts.append(
+                {
+                    "series": idx + 1,
+                    "label": label,
+                    "chart": f"[{idx + 1}/{len(all_series_values)}] {label}\n(chart error: {e})",
+                }
+            )
 
     return {
-        "chart": chart,
-        "legend": legend,
+        "charts": charts,
         "metadata": {
             "series_count": len(series_data),
+            "series_plotted": len(charts),
             "data_points": len(all_timestamps),
             "time_range": {
                 "start": datetime.fromtimestamp(start_ts).isoformat() if start_ts else None,
                 "end": datetime.fromtimestamp(end_ts).isoformat() if end_ts else None,
             },
-            "value_range": {"min": min_val, "max": max_val},
+            "value_range": {"min": global_min, "max": global_max},
         },
         "truncated": truncated,
     }

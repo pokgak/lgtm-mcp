@@ -180,25 +180,27 @@ def register_prometheus_tools(mcp: FastMCP) -> None:
         start: str,
         end: str,
         step: str = "1m",
-        height: int = 15,
+        height: int = 12,
         max_series: int = 5,
         instance: str | None = None,
     ) -> dict[str, Any]:
         """Execute PromQL range query and return ASCII chart visualization.
 
-        Best for visualizing time-series trends. For raw data, use prometheus_range_query.
+        Returns separate charts for each series (up to max_series) with consistent
+        Y-axis dimensions for easy comparison. Best for visualizing time-series trends.
+        For raw data, use prometheus_range_query.
 
         Args:
             query: PromQL query string (e.g., 'rate(http_requests_total[5m])')
             start: Start timestamp (Unix epoch or RFC3339)
             end: End timestamp (Unix epoch or RFC3339)
             step: Query resolution step (e.g., "15s", "1m", "5m")
-            height: Chart height in lines (default: 15)
-            max_series: Maximum series to plot (default: 5)
+            height: Chart height in lines for each chart (default: 12)
+            max_series: Maximum number of series to plot (default: 5)
             instance: LGTM instance name
 
         Returns:
-            Dictionary with ASCII chart, legend, and metadata
+            Dictionary with list of ASCII charts and metadata
         """
         async with get_prometheus_client(instance) as client:
             response = await client.range_query(query, start, end, step)
