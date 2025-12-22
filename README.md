@@ -107,7 +107,10 @@ If you've cloned the repository locally:
 ### Available Tools
 
 **Loki (Logs)**
-- `loki_query_logs` - Execute LogQL queries
+- `loki_patterns` - **Start here!** Detect log patterns and frequency (requires `pattern_ingester` enabled)
+- `loki_stats` - Get quick stats (stream count, bytes) without fetching logs
+- `loki_volume` - Get log volume breakdown by labels
+- `loki_query_logs` - Retrieve log entries (use after patterns to get specific examples)
 - `loki_instant_query` - Metric-type LogQL at single point
 - `loki_get_labels` - List label names
 - `loki_get_label_values` - Get values for a label
@@ -116,6 +119,7 @@ If you've cloned the repository locally:
 **Prometheus (Metrics)**
 - `prometheus_instant_query` - Execute PromQL instant query
 - `prometheus_range_query` - Execute PromQL range query (**broken**)
+- `prometheus_range_query_chart` - Range query with ASCII chart visualization
 - `prometheus_get_metric_names` - List metrics
 - `prometheus_get_label_names` - List label names
 - `prometheus_get_label_values` - Get values for a label
@@ -123,7 +127,8 @@ If you've cloned the repository locally:
 - `prometheus_get_metadata` - Get metric metadata
 
 **Tempo (Traces)**
-- `tempo_get_trace` - Retrieve trace by ID
+- `tempo_trace_summary` - **Start here!** Get trace summary with stats (duration p50/p95/p99, error count, span tree)
+- `tempo_get_trace` - Retrieve full trace data (use after summary for details)
 - `tempo_search_traces` - Search with TraceQL
 - `tempo_get_tag_names` - List tag names
 - `tempo_get_tag_values` - Get values for a tag

@@ -21,22 +21,125 @@ def register_loki_tools(mcp: FastMCP) -> None:
     """Register all Loki tools with the MCP server."""
 
     @mcp.tool()
-    async def loki_query_logs(
+    async def loki_patterns(
+        query: str,
+        start: str,
+        end: str,
+        step: str | None = None,
+        instance: str | None = None,
+    ) -> dict[str, Any]:
+        """Detect log patterns and their frequency. Use this FIRST when investigating logs.
+
+        Automatically groups similar log lines into patterns, showing which patterns
+        are most common. Much more efficient than fetching raw logs for understanding
+        log structure and identifying issues.
+
+        Requires pattern_ingester to be enabled in Loki.
+
+        Args:
+            query: LogQL stream selector (e.g., '{app="myapp"}')
+            start: Start timestamp (Unix epoch seconds or RFC3339)
+            end: End timestamp (Unix epoch seconds or RFC3339)
+            step: Step between samples for pattern frequency (optional)
+            instance: LGTM instance name
+
+        Returns:
+            Dictionary with patterns and their sample counts over time
+        """
+        async with get_loki_client(instance) as client:
+            data = await client.get_patterns(query, start, end, step)
+            patterns = data.get("data", [])
+            return {
+                "status": data.get("status", "success"),
+                "pattern_count": len(patterns),
+                "patterns": [
+                    {
+                        "pattern": p.get("pattern", ""),
+                        "total_samples": sum(s[1] for s in p.get("samples", [])),
+                        "sample_count": len(p.get("samples", [])),
+                    }
+                    for p in patterns
+                ],
+            }
+
+    @mcp.tool()
+    async def loki_stats(
+        query: str,
+        start: str,
+        end: str,
+        instance: str | None = None,
+    ) -> dict[str, Any]:
+        """Get quick statistics about logs matching a query.
+
+        Returns approximate counts of streams, chunks, entries, and bytes
+        without fetching actual log content. Use this to understand query
+        scope before fetching logs.
+
+        Args:
+            query: LogQL matchers (e.g., '{app="myapp", env!="dev"}')
+            start: Start timestamp (Unix epoch seconds or RFC3339)
+            end: End timestamp (Unix epoch seconds or RFC3339)
+            instance: LGTM instance name
+
+        Returns:
+            Dictionary with streams, chunks, entries, and bytes counts
+        """
+        async with get_loki_client(instance) as client:
+            return await client.get_index_stats(query, start, end)
+
+    @mcp.tool()
+    async def loki_volume(
         query: str,
         start: str,
         end: str,
         limit: int = 100,
-        direction: str = "backward",
+        target_labels: str | None = None,
+        aggregate_by: str = "series",
         instance: str | None = None,
     ) -> dict[str, Any]:
-        """Execute LogQL query over a time range to retrieve logs.
+        """Get log volume breakdown by labels.
+
+        Shows how much log data exists for different label combinations.
+        Useful for identifying high-volume log sources.
+
+        Args:
+            query: LogQL stream selector (e.g., '{app=~".+"}')
+            start: Start timestamp (Unix epoch seconds or RFC3339)
+            end: End timestamp (Unix epoch seconds or RFC3339)
+            limit: Maximum series to return (default: 100)
+            target_labels: Comma-separated labels to aggregate by (e.g., "app,env")
+            aggregate_by: "series" for label combinations, "labels" for label names only
+            instance: LGTM instance name
+
+        Returns:
+            Dictionary with volume data per label combination
+        """
+        async with get_loki_client(instance) as client:
+            return await client.get_volume(query, start, end, limit, target_labels, aggregate_by)
+
+    @mcp.tool()
+    async def loki_query_logs(
+        query: str,
+        start: str,
+        end: str,
+        limit: int = 20,
+        direction: str = "backward",
+        max_line_length: int = 500,
+        instance: str | None = None,
+    ) -> dict[str, Any]:
+        """Retrieve log entries. Use loki_patterns first to understand log structure.
+
+        Fetches actual log lines matching a query. For initial investigation,
+        use loki_patterns to identify interesting patterns, then use this
+        to get specific examples.
 
         Args:
             query: LogQL query string (e.g., '{app="myapp"} |= "error"')
             start: Start timestamp (Unix epoch seconds or RFC3339)
             end: End timestamp (Unix epoch seconds or RFC3339)
-            limit: Maximum log entries to return (default: 100)
+            limit: Maximum log entries to return (default: 20)
             direction: Query direction - "backward" (newest first) or "forward"
+            max_line_length: Truncate log lines longer than this (default: 500)
             instance: LGTM instance name (uses default if not specified)
 
         Returns:
@@ -44,11 +147,17 @@ def register_loki_tools(mcp: FastMCP) -> None:
         """
         async with get_loki_client(instance) as client:
             response = await client.query_range(query, start, end, limit, direction)
+            entries = response.get_log_entries()[:limit]
+            for entry in entries:
+                line = entry.get("line", "")
+                if len(line) > max_line_length:
+                    entry["line"] = line[:max_line_length] + "..."
+                    entry["truncated"] = True
             return {
                 "status": response.status,
                 "result_type": response.data.resultType,
-                "entries": response.get_log_entries()[:limit],
-                "count": len(response.get_log_entries()),
+                "entries": entries,
+                "count": len(entries),
             }
 
     @mcp.tool()

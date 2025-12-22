@@ -65,11 +65,11 @@ class LokiLabelsResponse(BaseModel):
     """Loki labels API response."""
 
     status: str
-    data: list[str]
+    data: list[str] = Field(default_factory=list)
 
 
 class LokiSeriesResponse(BaseModel):
     """Loki series API response."""
 
     status: str
-    data: list[dict[str, str]]
+    data: list[dict[str, str]] = Field(default_factory=list)

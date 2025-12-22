@@ -1,5 +1,7 @@
 """Loki API client."""
 
+from typing import Any
+
 import httpx
 
 from lgtm_mcp.clients.base import BaseClient
@@ -143,3 +145,84 @@ class LokiClient(BaseClient):
         data = await self._get("/loki/api/v1/series", params=params)
         response = LokiSeriesResponse.model_validate(data)
         return response.data
+
+    @traced_operation()
+    async def get_patterns(
+        self,
+        query: str,
+        start: str,
+        end: str,
+        step: str | None = None,
+    ) -> dict[str, Any]:
+        """Detect log patterns and their frequency.
+
+        Args:
+            query: LogQL stream selector (e.g., '{app="myapp"}')
+            start: Start timestamp (Unix epoch or RFC3339)
+            end: End timestamp (Unix epoch or RFC3339)
+            step: Step between samples (optional)
+
+        Returns:
+            Dictionary with detected patterns and sample counts
+        """
+        params: dict[str, Any] = {"query": query, "start": start, "end": end}
+        if step:
+            params["step"] = step
+        data = await self._get("/loki/api/v1/patterns", params=params)
+        return data
+
+    @traced_operation()
+    async def get_index_stats(
+        self,
+        query: str,
+        start: str,
+        end: str,
+    ) -> dict[str, Any]:
+        """Get index statistics for a query.
+
+        Args:
+            query: LogQL matchers (e.g., '{app="myapp"}')
+            start: Start timestamp
+            end: End timestamp
+
+        Returns:
+            Dictionary with streams, chunks, entries, and bytes counts
+        """
+        params = {"query": query, "start": start, "end": end}
+        data = await self._get("/loki/api/v1/index/stats", params=params)
+        return data
+
+    @traced_operation()
+    async def get_volume(
+        self,
+        query: str,
+        start: str,
+        end: str,
+        limit: int = 100,
+        target_labels: str | None = None,
+        aggregate_by: str = "series",
+    ) -> dict[str, Any]:
+        """Get log volume by labels.
+
+        Args:
+            query: LogQL stream selector (e.g., '{app="myapp"}')
+            start: Start timestamp
+            end: End timestamp
+            limit: Maximum series to return (default: 100)
+            target_labels: Comma-separated list of labels to aggregate by
+            aggregate_by: Aggregation mode - "series" or "labels"
+
+        Returns:
+            Dictionary with volume data per label combination
+        """
+        params: dict[str, Any] = {
+            "query": query,
+            "start": start,
+            "end": end,
+            "limit": limit,
+            "aggregateBy": aggregate_by,
+        }
+        if target_labels:
+            params["targetLabels"] = target_labels
+        data = await self._get("/loki/api/v1/index/volume", params=params)
+        return data
