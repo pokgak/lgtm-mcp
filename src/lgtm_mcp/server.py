@@ -1,6 +1,7 @@
 """LGTM MCP Server - Read-only access to Loki, Prometheus, and Tempo APIs."""
 
 import asyncio
+from typing import Any, Literal
 
 from mcp.server.fastmcp import FastMCP
 
@@ -22,31 +23,57 @@ mcp = FastMCP(
 )
 
 
-@mcp.tool()
-def list_instances() -> list[dict]:
-    """List all configured LGTM instances with their available backends."""
-    manager = get_instance_manager()
-    return manager.list_instances()
+def register_tools_dynamically(mcp: FastMCP) -> None:
+    """Register only tools for backends that are configured."""
+    config = load_config()
+
+    has_loki = False
+    has_prometheus = False
+    has_tempo = False
+
+    for instance in config.instances.values():
+        if instance.loki:
+            has_loki = True
+        if instance.prometheus:
+            has_prometheus = True
+        if instance.tempo:
+            has_tempo = True
+
+    if has_loki:
+        register_loki_tools(mcp)
+    if has_prometheus:
+        register_prometheus_tools(mcp)
+    if has_tempo:
+        register_tempo_tools(mcp)
 
 
 @mcp.tool()
-def set_default_instance(instance: str) -> str:
-    """Set the default instance for subsequent queries.
+def instances(
+    action: Literal["list", "set_default"] = "list",
+    name: str | None = None,
+) -> dict[str, Any]:
+    """Manage LGTM instances: list available instances or set default.
 
     Args:
-        instance: Name of the instance to set as default
-
-    Returns:
-        Confirmation message
+        action: "list" to show instances, "set_default" to change default
+        name: Instance name (required for set_default)
     """
     manager = get_instance_manager()
-    manager.set_default(instance)
-    return f"Default instance set to: {instance}"
+
+    if action == "list":
+        return {"status": "success", "instances": manager.list_instances()}
+
+    elif action == "set_default":
+        if not name:
+            return {"status": "error", "message": "name parameter required for set_default"}
+        manager.set_default(name)
+        return {"status": "success", "message": f"Default instance set to: {name}"}
+
+    else:
+        return {"status": "error", "message": f"Unknown action: {action}"}
 
 
-register_loki_tools(mcp)
-register_prometheus_tools(mcp)
-register_tempo_tools(mcp)
+register_tools_dynamically(mcp)
 register_label_resources(mcp)
 register_metric_resources(mcp)
 register_syntax_resources(mcp)
@@ -55,7 +82,6 @@ register_syntax_resources(mcp)
 def main() -> None:
     """Main entry point for the MCP server."""
     init_tracing()
-    load_config()
     asyncio.run(mcp.run_stdio_async())
 
 
