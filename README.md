@@ -116,7 +116,7 @@ If you've cloned the repository locally:
 
 **Prometheus (Metrics)**
 - `prometheus_instant_query` - Execute PromQL instant query
-- `prometheus_range_query` - Execute PromQL range query
+- `prometheus_range_query` - Execute PromQL range query (**broken**)
 - `prometheus_get_metric_names` - List metrics
 - `prometheus_get_label_names` - List label names
 - `prometheus_get_label_values` - Get values for a label
